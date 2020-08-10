@@ -6,6 +6,8 @@ Use command in repository `yarn install`
 
 # ESchool
 
+[![<Build>](https://circleci.com/gh/meyson/final_project.svg?style=svg)](https://app.circleci.com/pipelines/github/meyson/final_project)
+
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 7.0.3.
 Update your Angular CLI `npm update -g @angular/cli`
 
