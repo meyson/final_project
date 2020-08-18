@@ -28,7 +28,10 @@ jobs:
             command: ng build --prod
         - run:
             name: Debug delete this
-            command: ls -l
+            command: |
+              pwd
+              ls -l
+              ls ~/.local
 
         # Cache local dependencies if they don't exist
         - save_cache:
@@ -53,8 +56,10 @@ jobs:
               at: .
           - run:
               name: Debug delete this
-              command: ls -l
-
+              command: |
+                pwd
+                ls -l
+                ls ~/.local
             # Log the current branch
 #            - run:
 #                name: Show current branch
