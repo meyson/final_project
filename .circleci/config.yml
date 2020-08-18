@@ -1,48 +1,94 @@
 version: 2
 
 jobs:
+    build:
+      working_directory: ~/project-name
+      docker:
+        - image: circleci/node:10-browsers
+      steps:
+        # Checkout the code from the branch into the working_directory
+        - checkout
+        # Log the current branch
+        - run:
+            name: Show current branch
+            command: echo ${CIRCLE_BRANCH}
+        # Restore local dependencies from cache
+        - restore_cache:
+            keys:
+              - v1-dependencies-{{ checksum "package-lock.json" }}
+              - v1-dependencies-
+        # Install project dependencies
+        - run:
+            name: Install local dependencies
+            command: |
+              yarn install
+              npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
+        - run:
+            name: Build angular app
+            command: ng build --prod
+        - run:
+            name: Debug delete this
+            command: ls -l
+
+        # Cache local dependencies if they don't exist
+        - save_cache:
+            key: v1-dependencies-{{ checksum "package-lock.json" }}
+            paths:
+              - node_modules
+
+        # Save workspace for subsequent jobs (i.e. test)
+        - persist_to_workspace:
+            root: .
+            paths:
+              - .
+
     # The test job
     test:
         working_directory: ~/project-name
         docker:
             - image: circleci/node:10-browsers
         steps:
-            # Checkout the code from the branch into the working_directory
-            - checkout
+          # Reuse the workspace from the build job
+          - attach_workspace:
+              at: .
+          - run:
+              name: Debug delete this
+              command: ls -l
+
             # Log the current branch
-            - run:
-                name: Show current branch
-                command: echo ${CIRCLE_BRANCH}
-            # Restore local dependencies from cache
-            - restore_cache:
-                keys:
-                - v1-dependencies-{{ checksum "package-lock.json" }}
-                - v1-dependencies-
-            # Install project dependencies
-            - run:
-                name: Install local dependencies
-                command: |
-                  yarn install
-                  npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
-            # Cache local dependencies if they don't exist
-            - save_cache:
-                key: v1-dependencies-{{ checksum "package-lock.json" }}
-                paths:
-                    - node_modules
-            # Lint the source code
+#            - run:
+#                name: Show current branch
+#                command: echo ${CIRCLE_BRANCH}
+#            # Restore local dependencies from cache
+#            - restore_cache:
+#                keys:
+#                - v1-dependencies-{{ checksum "package-lock.json" }}
+#                - v1-dependencies-
+#            # Install project dependencies
+#            - run:
+#                name: Install local dependencies
+#                command: |
+#                  yarn install
+#                  npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
+#            # Cache local dependencies if they don't exist
+#            - save_cache:
+#                key: v1-dependencies-{{ checksum "package-lock.json" }}
+#                paths:
+#                    - node_modules
+#            # Lint the source code
 #            - run:
 #                name: Linting
-#                command: npm run lint
-            # Test the source code
-            - run:
-                name: Testing
-                command: ng test --watch=false --browsers ChromeHeadless
-#            # End to End test
+#                command: ng lint
+#            # Test the source code
 #            - run:
-#                name: End to End Test
-#                command: npm run e2e -- --protractor-config=e2e/protractor-ci.conf.js
+#                name: Testing
+#                command: ng test --watch=false --browsers ChromeHeadless
+
 workflows:
   version: 2
-  build_and_deploy:
+  build_and_test:
     jobs:
-      - test
+      - build
+      - test:
+          requires:
+            - build
