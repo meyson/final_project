@@ -31,16 +31,11 @@ jobs:
         - run:
             name: Build angular app
             command: ng build --prod
-        - run:
-            name: Create artifacts
-            command: tar -czf "eschool_fe.tar.gz" -C ./dist/eSchool/ .
         # Cache local dependencies if they don't exist
         - save_cache:
             key: v1-dependencies-{{ checksum "package-lock.json" }}
             paths:
               - node_modules
-        - store_artifacts: # store the uberjar as an artifact
-            path: eschool_fe.tar.gz
         # Save workspace for subsequent jobs (i.e. test)
         - persist_to_workspace:
             root: .
@@ -56,13 +51,7 @@ jobs:
           # Reuse the workspace from the build job
           - attach_workspace:
               at: .
-          - run:
-              name: Debug delete this
-              command: |
-                pwd
-                ls -l
-                ls ~/.local
-            # Log the current branch
+          # Log the current branch
           - run:
               name: Show current branch
               command: echo ${CIRCLE_BRANCH}
@@ -80,11 +69,38 @@ jobs:
               name: Testing
               command: ng test --watch=false --browsers ChromeHeadless
 
+          - run:
+              name: Create artifacts
+              command: tar -czf "eschool_fe.tar.gz" -C ./dist/eSchool/ .
+          - store_artifacts: # store the an artifact
+              path: eschool_fe.tar.gz
+    deploy:
+      docker:
+        - image: cimg/base:2020.01
+      resource_class: small
+      steps:
+        - add_ssh_keys:
+            fingerprints:
+              - "b7:fd:ae:26:61:c9:e4:b6:36:6f:41:74:6a:f9:86:3c"
+        - run:
+            name: fix host authenticity for deploy server
+            command: ssh-keyscan $SSH_HOST >> ~/.ssh/known_hosts
+        - run:
+            name: Deploy Over SSH
+            command: |
+              ssh $SSH_USER@$SSH_HOST "python3 deploy_eschool/deploy.py --job $CIRCLE_PREVIOUS_BUILD_NUM --project fe"
+
 workflows:
   version: 2
-  build_and_test:
+  build_and_deploy:
     jobs:
       - build
       - test:
           requires:
             - build
+      - deploy:
+          requires:
+            - build # only deploy once build job has completed
+          filters:
+            branches:
+              only: master # Only deploy on the master branch
