@@ -44,6 +44,7 @@ jobs:
             root: .
             paths:
               - .
+              - ~/.local
 
     # The test job
     test:
@@ -54,6 +55,11 @@ jobs:
           # Reuse the workspace from the build job
           - attach_workspace:
               at: .
+          - run:
+              name: mv
+              command: |
+                rm ~/.local
+                mv .local ~/.local
           - run:
               name: Debug delete this
               command: |
