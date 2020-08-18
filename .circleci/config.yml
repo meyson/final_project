@@ -23,7 +23,7 @@ jobs:
                 name: Install local dependencies
                 command: |
                   yarn install
-                  npm install -g @angular/cli@7.0.3
+                  npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
             # Cache local dependencies if they don't exist
             - save_cache:
                 key: v1-dependencies-{{ checksum "package-lock.json" }}
