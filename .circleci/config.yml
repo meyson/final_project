@@ -36,7 +36,7 @@ jobs:
             # Test the source code
             - run:
                 name: Testing
-                command: ng test --browsers ChromeHeadless
+                command: ng test --watch=false --browsers ChromeHeadless
 #            # End to End test
 #            - run:
 #                name: End to End Test
