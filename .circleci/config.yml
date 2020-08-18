@@ -2,7 +2,7 @@ version: 2
 
 jobs:
     build:
-      working_directory: ~/project-name
+      working_directory: ~/eschool_fe
       docker:
         - image: circleci/node:10-browsers
       steps:
@@ -24,31 +24,32 @@ jobs:
               yarn install
               npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
         - run:
+            name: Edit files for our environment
+            command: |
+              sed -i -e "s|https://fierce-shore-32592.herokuapp.com|http://$BE_LB_HOSTNAME|g" \
+              ./src/app/services/token-interceptor.service.ts
+        - run:
             name: Build angular app
             command: ng build --prod
         - run:
-            name: Debug delete this
-            command: |
-              pwd
-              ls -l
-              ls ~/.local
-
+            name: Create artifacts
+            command: tar -czf "eschool_fe.tar.gz" -C ./dist/eSchool/ .
         # Cache local dependencies if they don't exist
         - save_cache:
             key: v1-dependencies-{{ checksum "package-lock.json" }}
             paths:
               - node_modules
-
+        - store_artifacts: # store the uberjar as an artifact
+            path: eschool_fe.tar.gz
         # Save workspace for subsequent jobs (i.e. test)
         - persist_to_workspace:
             root: .
             paths:
               - .
-              - ~/.local
 
     # The test job
     test:
-        working_directory: ~/project-name
+        working_directory: ~/eschool_fe
         docker:
             - image: circleci/node:10-browsers
         steps:
@@ -56,44 +57,28 @@ jobs:
           - attach_workspace:
               at: .
           - run:
-              name: mv
-              command: |
-                rm ~/.local
-                mv .local ~/.local
-          - run:
               name: Debug delete this
               command: |
                 pwd
                 ls -l
                 ls ~/.local
             # Log the current branch
-#            - run:
-#                name: Show current branch
-#                command: echo ${CIRCLE_BRANCH}
-#            # Restore local dependencies from cache
-#            - restore_cache:
-#                keys:
-#                - v1-dependencies-{{ checksum "package-lock.json" }}
-#                - v1-dependencies-
-#            # Install project dependencies
-#            - run:
-#                name: Install local dependencies
-#                command: |
-#                  yarn install
-#                  npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
-#            # Cache local dependencies if they don't exist
-#            - save_cache:
-#                key: v1-dependencies-{{ checksum "package-lock.json" }}
-#                paths:
-#                    - node_modules
-#            # Lint the source code
-#            - run:
-#                name: Linting
-#                command: ng lint
-#            # Test the source code
-#            - run:
-#                name: Testing
-#                command: ng test --watch=false --browsers ChromeHeadless
+          - run:
+              name: Show current branch
+              command: echo ${CIRCLE_BRANCH}
+          # Install project dependencies
+          - run:
+              name: Install local dependencies
+              command: |
+                npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
+          # Lint the source code
+          - run:
+              name: Linting
+              command: ng lint
+          # Test the source code
+          - run:
+              name: Testing
+              command: ng test --watch=false --browsers ChromeHeadless
 
 workflows:
   version: 2
