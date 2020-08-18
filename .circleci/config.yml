@@ -1,7 +1,106 @@
-version: 2.1
-orbs:
-  node: circleci/node@3.0.0
+version: 2
+
+jobs:
+    build:
+      working_directory: ~/eschool_fe
+      docker:
+        - image: circleci/node:10-browsers
+      steps:
+        # Checkout the code from the branch into the working_directory
+        - checkout
+        # Log the current branch
+        - run:
+            name: Show current branch
+            command: echo ${CIRCLE_BRANCH}
+        # Restore local dependencies from cache
+        - restore_cache:
+            keys:
+              - v1-dependencies-{{ checksum "package-lock.json" }}
+              - v1-dependencies-
+        # Install project dependencies
+        - run:
+            name: Install local dependencies
+            command: |
+              yarn install
+              npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
+        - run:
+            name: Edit files for our environment
+            command: |
+              sed -i -e "s|https://fierce-shore-32592.herokuapp.com|http://$BE_LB_HOSTNAME|g" \
+              ./src/app/services/token-interceptor.service.ts
+        - run:
+            name: Build angular app
+            command: ng build --prod
+        # Cache local dependencies if they don't exist
+        - save_cache:
+            key: v1-dependencies-{{ checksum "package-lock.json" }}
+            paths:
+              - node_modules
+        # Save workspace for subsequent jobs (i.e. test)
+        - persist_to_workspace:
+            root: .
+            paths:
+              - .
+
+    # The test job
+    test:
+        working_directory: ~/eschool_fe
+        docker:
+            - image: circleci/node:10-browsers
+        steps:
+          # Reuse the workspace from the build job
+          - attach_workspace:
+              at: .
+          # Log the current branch
+          - run:
+              name: Show current branch
+              command: echo ${CIRCLE_BRANCH}
+          # Install project dependencies
+          - run:
+              name: Install local dependencies
+              command: |
+                npm install --prefix=$HOME/.local --global @angular/cli@7.0.3
+          # Lint the source code
+          - run:
+              name: Linting
+              command: ng lint
+          # Test the source code
+          - run:
+              name: Testing
+              command: ng test --watch=false --browsers ChromeHeadless
+
+          - run:
+              name: Create artifacts
+              command: tar -czf "eschool_fe.tar.gz" -C ./dist/eSchool/ .
+          - store_artifacts: # store the an artifact
+              path: eschool_fe.tar.gz
+    deploy:
+      docker:
+        - image: cimg/base:2020.01
+      resource_class: small
+      steps:
+        - add_ssh_keys:
+            fingerprints:
+              - "b7:fd:ae:26:61:c9:e4:b6:36:6f:41:74:6a:f9:86:3c"
+        - run:
+            name: fix host authenticity for deploy server
+            command: ssh-keyscan $SSH_HOST >> ~/.ssh/known_hosts
+        - run:
+            name: Deploy Over SSH
+            command: |
+              ssh $SSH_USER@$SSH_HOST "python3 deploy_eschool/deploy.py --job $CIRCLE_PREVIOUS_BUILD_NUM --project fe"
+
 workflows:
-  node-tests:
+  version: 2
+  build_and_deploy:
     jobs:
-      - node/test
+      - build
+      - test:
+          requires:
+            - build
+      - deploy:
+          requires:
+            - test # only deploy once build job has completed
+          filters:
+            branches:
+              only: master # Only deploy on the master branch
